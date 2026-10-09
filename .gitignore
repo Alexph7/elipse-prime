@@ -1,0 +1,22 @@
+# Dependências
+node_modules/
+
+# Credenciais e cookies Prime
+.env
+.env.*
+!.env.example
+
+# Históricos e dados locais
+cupons-postados.json
+promotion-aberturas.json
+imagem-index.json
+amazon-index.json
+sentinelas.json
+afiliacao.json
+stores.json
+
+# Arquivos temporários e logs
+*.log
+npm-debug.log*
+debug-*
+.DS_Store
