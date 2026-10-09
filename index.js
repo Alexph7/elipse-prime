@@ -26,6 +26,29 @@ const ARQUIVO_PROMOTIONS = path.join(__dirname, "promotion-aberturas.json");
 const IMAGEM_INDEX_FILE = path.join(__dirname, "imagem-index.json");
 const AFILIADOS_FILE = path.join(__dirname, "afiliacao.json");
 const LIMITE_ABERTURAS_PROMOTION = 2;
+const ARQUIVO_PROMOTIONS_IGNORADAS = path.join(
+  __dirname,
+  "promotions-ignoradas.json"
+);
+
+function promotionIgnorada(id) {
+  if (!fs.existsSync(ARQUIVO_PROMOTIONS_IGNORADAS)) {
+    return false;
+  }
+
+  try {
+    const ids = JSON.parse(
+      fs.readFileSync(ARQUIVO_PROMOTIONS_IGNORADAS, "utf8")
+    );
+
+    return Array.isArray(ids) &&
+      ids.includes(id.toUpperCase());
+
+  } catch (err) {
+    console.error("Erro na lista de promotions ignoradas:", err.message);
+    return false;
+  }
+}
 const QUANTIDADE_LINKS = 4;
 const INTERVALO_PRODUTOS_MS = 2000;
 const REQUEST_TIMEOUT = 15000;
@@ -186,7 +209,15 @@ function extrairCuponsPopup(html) {
 }
 
 async function obterExtrasPromotion(id) {
-  if (andamentoPopups.has(id)) return andamentoPopups.get(id);
+
+  if (promotionIgnorada(id)) {
+    return [];
+  }
+
+  if (andamentoPopups.has(id)) {
+    return andamentoPopups.get(id);
+  }
+
   const tarefa = (async () => {
     const registro = historicoPromotions.get(id);
     // Qualquer cupom deste ID já publicado: parar novas consultas.
