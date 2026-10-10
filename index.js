@@ -95,7 +95,7 @@ function requisitarAmazon(url) {
         proxy,
         url,
         "-H",
-        "User-Agent: Mozilla/5.0",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
         "-H",
         "Accept-Language: pt-BR,pt;q=0.9",
         "-w",
