@@ -359,40 +359,76 @@ async function obterExtrasPromotion(id) {
 
 async function consultarProduto(url) {
 
-  try {
-    const resposta = await axios.get(url, {
-      proxy: {
-        protocol: "http",
-        host: PROXY_HOST,
-        port: PROXY_PORT,
-        auth: {
-          username: PROXY_USER,
-          password: PROXY_PASSWORD
-        }
-      },
-      timeout: REQUEST_TIMEOUT,
-      headers: {
-        "user-agent": "Mozilla/5.0",
-        "accept-language": "pt-BR,pt;q=0.9",
-        "accept-encoding": "gzip, deflate, br"
-      }
-    });
+  for (let tentativa = 1; tentativa <= 5; tentativa++) {
 
-    const html = resposta.data;
-    if (resposta.status !== 200 || typeof html !== "string" ||
-      /captcha|enter the characters|digite os caracteres/i.test(html) ||
-      !html.includes("amzn1.asin.")) {
-      console.warn("Página inadequada, sem IDs:", url);
-      return [];
+    try {
+
+      const resposta = await axios.get(url, {
+        proxy: {
+          protocol: "http",
+          host: PROXY_HOST,
+          port: PROXY_PORT,
+          auth: {
+            username: PROXY_USER,
+            password: PROXY_PASSWORD
+          }
+        },
+        timeout: REQUEST_TIMEOUT,
+        headers: {
+          "user-agent": "Mozilla/5.0",
+          "accept-language": "pt-BR,pt;q=0.9",
+          "accept-encoding": "gzip, deflate, br"
+        }
+      });
+
+      const html = resposta.data;
+
+      if (
+        resposta.status !== 200 ||
+        typeof html !== "string" ||
+        /captcha|enter the characters|digite os caracteres/i.test(html) ||
+        !html.includes("amzn1.asin.")
+      ) {
+        console.log(
+          "Produto inválido:",
+          url,
+          `tentativa ${tentativa}/5`
+        );
+
+        continue;
+      }
+
+      const ids = extrairIds(html);
+
+      console.log(
+        "Produto:",
+        url,
+        "IDs:",
+        ids,
+        `tentativa ${tentativa}/5`
+      );
+
+      return ids;
+
+    } catch (err) {
+
+      console.log(
+        "Erro produto:",
+        url,
+        `tentativa ${tentativa}/5`,
+        err.response?.status || err.message
+      );
     }
-    const ids = extrairIds(html);
-    console.log("Produto:", url, "IDs:", ids);
-    return ids;
-  } catch (err) {
-    console.log("Erro produto:", url, err.response?.status || err.message);
-    return [];
   }
+
+  console.log(
+    "Produto falhou após 5 tentativas:",
+    url
+  );
+
+  return [];
 }
+
 function formatarMensagem(item, linkAmazon) {
   const observacao = item.vendaTerceiros ? "vendedores terceiros (não Amazon)\n" : "";
   if (item.porcentagem) {
