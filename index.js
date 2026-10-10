@@ -2,13 +2,14 @@
 
 const dns = require("dns");
 const { execFile } = require("child_process");
+const axios = require("axios");
 
 dns.setDefaultResultOrder("ipv4first");
 require("dotenv").config({ quiet: true });
 
 const TelegramBot = require("node-telegram-bot-api");
 const fs = require("fs");
-const https = require("https");
+const path = require("path");
 const moment = require("moment-timezone");
 
 const TOKEN = process.env.TOKEN;
@@ -324,7 +325,23 @@ async function obterExtrasPromotion(id) {
 async function consultarProduto(url) {
 
   try {
-    const resposta = await requisitarAmazon(url);
+    const resposta = await axios.get(url, {
+      proxy: {
+        protocol: "http",
+        host: PROXY_HOST,
+        port: PROXY_PORT,
+        auth: {
+          username: PROXY_USER,
+          password: PROXY_PASSWORD
+        }
+      },
+      timeout: REQUEST_TIMEOUT,
+      headers: {
+        "user-agent": "Mozilla/5.0",
+        "accept-language": "pt-BR,pt;q=0.9",
+        "accept-encoding": "gzip, deflate, br"
+      }
+    });
 
     const html = resposta.data;
     if (resposta.status !== 200 || typeof html !== "string" ||
