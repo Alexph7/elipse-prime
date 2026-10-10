@@ -1,13 +1,13 @@
 "use strict";
 
 const dns = require("dns");
+const { execFile } = require("child_process");
+
 dns.setDefaultResultOrder("ipv4first");
 require("dotenv").config({ quiet: true });
+
 const TelegramBot = require("node-telegram-bot-api");
-const axios = require("axios");
 const fs = require("fs");
-const path = require("path");
-const http = require("http");
 const https = require("https");
 const moment = require("moment-timezone");
 
@@ -60,30 +60,11 @@ function promotionIgnorada(id) {
     return false;
   }
 }
+
 const QUANTIDADE_LINKS = 4;
 const INTERVALO_PRODUTOS_MS = 2000;
 const REQUEST_TIMEOUT = 15000;
-const httpAgent = new http.Agent({
-  keepAlive: false,
-  maxSockets: 8,
-  family: 4
-});
 
-const httpsAgent = new https.Agent({
-  keepAlive: false,
-  maxSockets: 8,
-  family: 4
-});
-
-const proxyAmazon = {
-  protocol: "http",
-  host: PROXY_HOST,
-  port: PROXY_PORT,
-  auth: {
-    username: PROXY_USER,
-    password: PROXY_PASSWORD
-  }
-};
 const cuponsPostados = new Map();
 const historicoPromotions = new Map();
 const andamentoPopups = new Map();
@@ -96,6 +77,65 @@ let ultimoSlot = "";
 
 function agoraSP() { return moment().tz("America/Sao_Paulo"); }
 function dormir(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+function requisitarAmazon(url) {
+  return new Promise((resolve, reject) => {
+    const proxy =
+      `http://${PROXY_USER}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
+
+    execFile(
+      "curl",
+      [
+        "-sS",
+        "-L",
+        "--compressed",
+        "--max-time",
+        String(Math.ceil(REQUEST_TIMEOUT / 1000)),
+        "-x",
+        proxy,
+        url,
+        "-H",
+        "User-Agent: Mozilla/5.0",
+        "-H",
+        "Accept-Language: pt-BR,pt;q=0.9",
+        "-w",
+        "\n__HTTP_STATUS__:%{http_code}"
+      ],
+      {
+        maxBuffer: 5 * 1024 * 1024,
+        encoding: "utf8"
+      },
+      (erro, stdout, stderr) => {
+        const marcador = "\n__HTTP_STATUS__:";
+        const posicao = stdout.lastIndexOf(marcador);
+
+        if (posicao === -1) {
+          return reject(
+            new Error(
+              erro?.message ||
+              stderr ||
+              "Resposta inválida do curl"
+            )
+          );
+        }
+
+        const html =
+          stdout.slice(0, posicao);
+
+        const status =
+          Number(
+            stdout
+              .slice(posicao + marcador.length)
+              .trim()
+          );
+
+        resolve({
+          status,
+          data: html
+        });
+      }
+    );
+  });
+}
 function carregarJSON(arquivo, padrao) {
   if (!fs.existsSync(arquivo)) return padrao;
   try { return JSON.parse(fs.readFileSync(arquivo, "utf8")); }
@@ -255,17 +295,9 @@ async function obterExtrasPromotion(id) {
       return registro.extras;
     }
     if (registro?.sucessos >= LIMITE_ABERTURAS_PROMOTION) return registro.extras;
-    const resposta = await axios.get(`https://www.amazon.com.br/promotion/details/popup/${id}`, {
-      proxy: proxyAmazon,
-      httpAgent,
-      httpsAgent,
-      timeout: REQUEST_TIMEOUT,
-      headers: {
-        "user-agent": "Mozilla/5.0",
-        "accept-language": "pt-BR,pt;q=0.9",
-        "accept-encoding": "gzip, deflate, br"
-      }
-    });
+    const resposta = await requisitarAmazon(
+      `https://www.amazon.com.br/promotion/details/popup/${id}`
+    );
     const html = resposta.data;
     if (resposta.status !== 200 || typeof html !== "string" ||
       !html.includes("promo_tnc_popup_container_") ||
@@ -290,18 +322,10 @@ async function obterExtrasPromotion(id) {
 }
 
 async function consultarProduto(url) {
+
   try {
-    const resposta = await axios.get(url, {
-      proxy: proxyAmazon,
-      httpAgent,
-      httpsAgent,
-      timeout: REQUEST_TIMEOUT,
-      headers: {
-        "user-agent": "Mozilla/5.0",
-        "accept-language": "pt-BR,pt;q=0.9",
-        "accept-encoding": "gzip, deflate, br"
-      }
-    });
+    const resposta = await requisitarAmazon(url);
+
     const html = resposta.data;
     if (resposta.status !== 200 || typeof html !== "string" ||
       /captcha|enter the characters|digite os caracteres/i.test(html) ||
