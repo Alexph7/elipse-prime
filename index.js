@@ -88,6 +88,7 @@ function requisitarAmazon(url) {
       [
         "-sS",
         "-L",
+        "--compressed",
         "--max-time",
         String(Math.ceil(REQUEST_TIMEOUT / 1000)),
         "-x",
@@ -327,7 +328,9 @@ async function obterExtrasPromotion(id) {
         id,
         `tentativa ${tentativa}/5`,
         "status:",
-        resposta.status
+        resposta.status,
+        "resposta:",
+        String(resposta.data || "").slice(0, 500)
       );
 
       html = "";
