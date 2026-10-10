@@ -88,7 +88,6 @@ function requisitarAmazon(url) {
       [
         "-sS",
         "-L",
-        "--compressed",
         "--max-time",
         String(Math.ceil(REQUEST_TIMEOUT / 1000)),
         "-x",
