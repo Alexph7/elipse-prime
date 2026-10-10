@@ -13,9 +13,20 @@ const moment = require("moment-timezone");
 
 const TOKEN = process.env.TOKEN;
 const CANAL_ID = process.env.CANAL_ID;
-const AMAZON_COOKIE = process.env.AMAZON_COOKIE;
-if (!TOKEN || !CANAL_ID || !AMAZON_COOKIE) {
-  console.error("Configure TOKEN, CANAL_ID e AMAZON_COOKIE no .env antes de iniciar.");
+const PROXY_HOST = process.env.PROXY_HOST;
+const PROXY_PORT = Number(process.env.PROXY_PORT);
+const PROXY_USER = process.env.PROXY_USER;
+const PROXY_PASSWORD = process.env.PROXY_PASSWORD;
+
+if (
+  !TOKEN ||
+  !CANAL_ID ||
+  !PROXY_HOST ||
+  !PROXY_PORT ||
+  !PROXY_USER ||
+  !PROXY_PASSWORD
+) {
+  console.error("Configure TOKEN, CANAL_ID e PROXY no .env antes de iniciar.");
   process.exit(1);
 }
 
@@ -52,8 +63,27 @@ function promotionIgnorada(id) {
 const QUANTIDADE_LINKS = 4;
 const INTERVALO_PRODUTOS_MS = 2000;
 const REQUEST_TIMEOUT = 15000;
-const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 8, family: 4 });
-const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 8, family: 4 });
+const httpAgent = new http.Agent({
+  keepAlive: false,
+  maxSockets: 8,
+  family: 4
+});
+
+const httpsAgent = new https.Agent({
+  keepAlive: false,
+  maxSockets: 8,
+  family: 4
+});
+
+const proxyAmazon = {
+  protocol: "http",
+  host: PROXY_HOST,
+  port: PROXY_PORT,
+  auth: {
+    username: PROXY_USER,
+    password: PROXY_PASSWORD
+  }
+};
 const cuponsPostados = new Map();
 const historicoPromotions = new Map();
 const andamentoPopups = new Map();
@@ -226,7 +256,10 @@ async function obterExtrasPromotion(id) {
     }
     if (registro?.sucessos >= LIMITE_ABERTURAS_PROMOTION) return registro.extras;
     const resposta = await axios.get(`https://www.amazon.com.br/promotion/details/popup/${id}`, {
-      httpAgent, httpsAgent, timeout: REQUEST_TIMEOUT,
+      proxy: proxyAmazon,
+      httpAgent,
+      httpsAgent,
+      timeout: REQUEST_TIMEOUT,
       headers: {
         "user-agent": "Mozilla/5.0",
         "accept-language": "pt-BR,pt;q=0.9",
@@ -259,12 +292,14 @@ async function obterExtrasPromotion(id) {
 async function consultarProduto(url) {
   try {
     const resposta = await axios.get(url, {
-      httpAgent, httpsAgent, timeout: REQUEST_TIMEOUT,
+      proxy: proxyAmazon,
+      httpAgent,
+      httpsAgent,
+      timeout: REQUEST_TIMEOUT,
       headers: {
         "user-agent": "Mozilla/5.0",
         "accept-language": "pt-BR,pt;q=0.9",
-        "accept-encoding": "gzip, deflate, br",
-        Cookie: AMAZON_COOKIE
+        "accept-encoding": "gzip, deflate, br"
       }
     });
     const html = resposta.data;
@@ -382,4 +417,4 @@ bot.on("message", async msg => {
 bot.on("polling_error", err => console.log("Telegram polling:", err.message));
 
 carregarEstado();
-console.log("ELIPSE PRIME INICIADO — 4 produtos, sessão Prime, 53 varreduras/dia.");
+console.log("ELIPSE INICIADO — 4 produtos, proxy residencial rotativo, 53 varreduras/dia.");
