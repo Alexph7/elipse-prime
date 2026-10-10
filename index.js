@@ -296,17 +296,52 @@ async function obterExtrasPromotion(id) {
       return registro.extras;
     }
     if (registro?.sucessos >= LIMITE_ABERTURAS_PROMOTION) return registro.extras;
-    const resposta = await requisitarAmazon(
-      `https://www.amazon.com.br/promotion/details/popup/${id}`
-    );
-    const html = resposta.data;
-    if (resposta.status !== 200 || typeof html !== "string" ||
-      !html.includes("promo_tnc_popup_container_") ||
-      !html.includes("tncSectionContentMap") ||
-      /captcha|enter the characters|digite os caracteres/i.test(html)) {
-      console.log("Popup sem resposta válida:", id);
+    let resposta = null;
+    let html = "";
+
+    for (let tentativa = 1; tentativa <= 5; tentativa++) {
+
+      resposta = await requisitarAmazon(
+        `https://www.amazon.com.br/promotion/details/popup/${id}`
+      );
+
+      html = resposta.data;
+
+      const valido =
+        resposta.status === 200 &&
+        typeof html === "string" &&
+        html.includes("promo_tnc_popup_container_") &&
+        html.includes("tncSectionContentMap") &&
+        !/captcha|enter the characters|digite os caracteres/i.test(html);
+
+      if (valido) {
+        console.log(
+          "Popup respondeu:",
+          id,
+          `tentativa ${tentativa}/5`
+        );
+        break;
+      }
+
+      console.log(
+        "Popup inválido:",
+        id,
+        `tentativa ${tentativa}/5`,
+        "status:",
+        resposta.status
+      );
+
+      html = "";
+    }
+
+    if (!html) {
+      console.log(
+        "Popup falhou após 5 IPs:",
+        id
+      );
       return [];
     }
+
     const extras = extrairCuponsPopup(html);
     historicoPromotions.set(id, {
       sucessos: Math.min(LIMITE_ABERTURAS_PROMOTION, (registro?.sucessos || 0) + 1),
